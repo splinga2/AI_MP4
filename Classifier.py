@@ -2,13 +2,16 @@ import sys
 import math
 import matplotlib.pyplot as plt
 import numpy as np
+from random import shuffle
+from random import uniform
 
 example_width = 0
 example_height = 0
 num_classes = 0
 num_examples = 0
-alpha = 1
-epochs = 1
+alpha = 1.0
+bias = 0.5
+epochs = 8
 
 # Check for proper usage
 if(len(sys.argv) != 5):
@@ -23,69 +26,116 @@ value_map = {}
 value_map[' '] = 0
 value_map['+'] = 1
 value_map['#'] = 1
-
-# Initialize training results
-class_weight_vectors = [[[0.5 for i in range(example_width)] for j in range(example_height)] for c in range(num_classes)]
-epoch_accuracy = [0.0 for e in range(epochs)]
+weight_modes = {}
+weight_modes[0] = 'zero'
+weight_modes[1] = 'random'
+order_modes = {}
+order_modes[0] = 'in order'
+order_modes[1] = 'random order'
 
 # Function for classifying an example
 def classify(example, w_vectors):
-	x_vector = [[0.0 for i in range(example_width)] for j in range(example_height)]
-	products = [0.0 for c in range(num_classes)]
 
-	# Load x vector
-	for j in range(example_height):
-		row = example.readline()
-		for i in range(example_width):
-			char = row[i]
-			x_vector[j][i] = value_map[char]
+	products = np.dot(w_vectors, example.T)
+
+	return np.argmax(products)
 
 	# Calculate dot products
 	for c in range(num_classes):
 		dot_product = 0.0
 		for j in range(example_height):
 			for i in range(example_width):
-				dot_product += x_vector[j][i] * w_vectors[c][j][i]
-		products[c] = dot_product
+				dot_product += example[j][i] * w_vectors[c][j][i]
+		products[c] = dot_product + bias 
 
 	# Return most likely class
-	return products.index(max(products)), x_vector
+	return products.index(max(products))
 
 # Open training files
-training_labels = open(sys.argv[1], 'r')
-training_examples = open(sys.argv[2], 'r')
+training_labels_file = open(sys.argv[1], 'r')
+training_examples_file = open(sys.argv[2], 'r')
+training_examples = []
+training_labels = []
+
+for num, line in enumerate(training_labels_file):
+	training_labels.append(int(line))
+	training_examples.append([])
+	for j in range(example_height):
+		row = training_examples_file.readline()
+		for i in range(example_width):
+			training_examples[num].append(value_map[row[i]])
+
+# Close training files
+training_examples_file.close()
+training_labels_file.close()
+
+training_examples = np.array(training_examples)
+
+# Open test files
+test_labels_file = open(sys.argv[3], 'r')
+test_examples_file = open(sys.argv[4], 'r')
+test_examples = []
+test_labels = []
+
+for num, line in enumerate(test_labels_file):
+	test_labels.append(int(line))
+	test_examples.append([])
+	for j in range(example_height):
+		row = test_examples_file.readline()
+		for i in range(example_width):
+			test_examples[num].append(value_map[row[i]])
+
+# Close training files
+test_examples_file.close()
+test_labels_file.close()
+
+test_examples = np.array(test_examples)
+
+order_mode = 1
+weight_mode = 0
+bias = 0.5
+
+print("Ordering: "+order_modes[order_mode])
+index_order = [i for i in range(5000)]
+
+print("Weight Mode: "+weight_modes[weight_mode])
+# Initialize training results
+
+print("Bias: %.1f" % bias)
+
+if(weight_mode == 0):
+	class_weight_vectors = np.zeros((10, example_width*example_height))
+if(weight_mode == 1):
+	class_weight_vectors = (20.0 * np.random.rand(10, example_height*example_width)) - 10.0
+
+epoch_accuracy = [0.0 for e in range(epochs)]
 
 for epoch in range(epochs):
+
+	if(order_mode == 1):
+		shuffle(index_order)
+
+	alpha = 1/(epoch+1)
 
 	training_num_per_class = [0 for c in range(num_classes)]
 	training_num_examples = 0
 
-	training_labels.seek(0)
-	training_examples.seek(0)
-
-	for line in training_labels:
+	for index in index_order:
 		# Get example label
-		label = int(line)
+		label = training_labels[index]
 		
-		classification, x_vector = classify(training_examples, class_weight_vectors)
+		classification = classify(training_examples[index], class_weight_vectors)
 
 		# Check if correct
 		if(classification != label):
 			# Adjust weight vectors
-			for j in range(example_height):
-				for i in range(example_width):
-					class_weight_vectors[label][j][i] += alpha * x_vector[j][i]
-					class_weight_vectors[classification][j][i] -= alpha * x_vector[j][i]
+			class_weight_vectors[label] += alpha * training_examples[index]
+			class_weight_vectors[classification] -= alpha * training_examples[index]
 
 	# Caclulate epoch accuracy
-	training_labels.seek(0)
-	training_examples.seek(0)
-
-	for num, line in enumerate(training_labels):
-		# Get example label
-		label = int(line)
-		
-		classification, x = classify(training_examples, class_weight_vectors)
+	for index, label in enumerate(training_labels):
+				
+		classification = classify(training_examples[index], class_weight_vectors)
 
 		'''print("Example %d:" % num)
 		for j in range(example_height):
@@ -102,19 +152,14 @@ for epoch in range(epochs):
 		training_num_per_class[label] += 1
 		training_num_examples += 1
 
-# Close training files
-training_examples.close()
-training_labels.close()
+	#print("\tTraining:")
+	#print("\tEpoch %d: %d correct out of %d; " %(epoch, epoch_accuracy[epoch], training_num_examples) + '%7.3f' % (100 * epoch_accuracy[epoch] / training_num_examples) + " %\n")
 
-print("Training Results:\n")
+print("\tTraining Results:\n")
 
 # Print training curve
 for e in range(epochs):
-	print("Epoch %d: %d correct out of %d; " %(e, epoch_accuracy[e], training_num_examples) + '%7.3f' % (100 * epoch_accuracy[e] / training_num_examples) + " %\n")
-
-# Open test files
-test_labels = open(sys.argv[3], 'r')
-test_examples = open(sys.argv[4], 'r')
+	print("\tEpoch %d: %d correct out of %d; " %(e, epoch_accuracy[e], training_num_examples) + '%7.3f' % (100 * epoch_accuracy[e] / training_num_examples) + " %\n")
 
 true_labels = []
 guess_labels = []
@@ -124,22 +169,15 @@ test_class_num_examples = [0]*num_classes
 classification_rate = [0]*num_classes
 
 # MAP classification
-for number, line in enumerate(test_labels):
-
-	# Get actual class
-	true_class = int(line)
+for index, true_class in enumerate(test_labels):
 
 	# Update number of examples
 	test_class_num_examples[true_class] += 1
 	test_num_examples += 1
 	true_labels.append(true_class)
 
-	# Variables for determining label
-	best_class = -1
-	highest_class_prob = -float("inf")
-
 	# Calculate probability for each class
-	best_class, x = classify(test_examples, class_weight_vectors)
+	best_class = classify(test_examples[index], class_weight_vectors)
 
 	# Add label
 	guess_labels.append(best_class)
@@ -147,10 +185,6 @@ for number, line in enumerate(test_labels):
 	if(best_class == true_class):
 		classification_rate[true_class] += 1
 		total_correct += 1
-
-# Close test files
-test_examples.close()
-test_labels.close()
 
 print("Test Results:\n")
 
@@ -160,8 +194,8 @@ for c in range(num_classes):
 	print(str(classification_rate[c]) + " correct out of " + str(test_class_num_examples[c]) + "; " + '%7.3f' % (100 * classification_rate[c] / test_class_num_examples[c]) + " %\n")
 	classification_rate[c] /= test_class_num_examples[c]
 
-print("Total correct: ")
-print(str(total_correct) + " out of " + str(test_num_examples) + "; " + str(100 * total_correct / test_num_examples) + " %\n")
+print("\tTotal correct: ")
+print('\t' + str(total_correct) + " out of " + str(test_num_examples) + "; " + str(100 * total_correct / test_num_examples) + " %\n")
 
 # Compute confusion matrix
 confusion_matrix = [[0 for c in range(num_classes)] for r in range(num_classes)]
@@ -185,5 +219,4 @@ for r in range(num_classes):
 	sys.stdout.write('\n' + str(r) + ':')
 	for c in range(num_classes):
 		sys.stdout.write('%7.3f' % (100*confusion_matrix[r][c]))
-
 print('\n')
