@@ -220,3 +220,12 @@ for r in range(num_classes):
 	for c in range(num_classes):
 		sys.stdout.write('%7.3f' % (100*confusion_matrix[r][c]))
 print('\n')
+
+# Write weight vector visualizations
+for c in range(num_classes):
+	filename = "graphs/Class_" + str(c) + "_weight.png"
+	a = np.reshape(class_weight_vectors[c], (28,28))
+	fig, axis = plt.subplots()
+	plt.imshow(a)
+	plt.colorbar()
+	plt.savefig(filename)
