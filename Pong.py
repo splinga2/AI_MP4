@@ -32,6 +32,15 @@ def update_state(state, action, bounces):
 		reward = -1
 		return (state, reward, bounces)
 
+	'''if(ball_y > (paddle_y-(paddle_height/2)) and action == 1 and ball_x > 0.5):
+		reward = 0.5
+	elif(ball_y > (paddle_y-(paddle_height/2)) and action == 2 and ball_x > 0.5):
+		reward = -0.5
+	if(ball_y < (paddle_y-(paddle_height/2)) and action == 2 and ball_x > 0.5):
+		reward = 0.5
+	elif(ball_y < (paddle_y-(paddle_height/2)) and action == 1 and ball_x > 0.5):
+		reward = -0.5'''
+
 	# Move paddle
 	paddle_y += paddle_speed * actions[action]
 
@@ -93,15 +102,9 @@ def discretize(state):
 	paddle_y = state[4]
 	is_past = state[5]
 
-	#if(is_past):
-	#	return 0
-
 	ball_x = floor(11 * ball_x)
-	#if(ball_x == 12):
-	#	ball_x == 11
+
 	ball_y = floor(11 * ball_y)
-	#if(ball_y == 12):
-	#	ball_y == 11
 
 	if(velocity_x > 0.0):
 		velocity_x = 1
@@ -139,17 +142,11 @@ def getIndex(state):
 
 R_plus = 2
 Ne = 4
-rand_num = .1
 def exploration(u, n):
 	if(n < Ne):
-		return float('inf')
+		return 1.0
 	else:
 		return u
-	'''r = uniform(0.0, 1.0)
-	if(r < rand_num):
-		return float('inf')
-	else:
-		return u'''
 
 def maxAction(current_index):
 	max_q = -float('inf')
@@ -172,7 +169,7 @@ total_bounces = 0
 total_games = 0
 if(input_filename is None):
 	# Train
-	for i in range(500000):
+	for i in range(100000):
 		bounces = 0
 		total_games += 1
 		t = 1
@@ -202,9 +199,7 @@ if(input_filename is None):
 			state = next_state
 			t += 1
 		total_bounces += bounces
-		#print("Bounces for game%d: %d" % (total_games, bounces))
-		#print("Average bounces so far: %.3f" % (total_bounces / total_games))
-		#input()
+
 else:
 	# Read input file
 	with open(input_filename, 'r') as f:
@@ -227,7 +222,7 @@ else:
 			current_Q = Q[current_action][current_i]
 
 			# Update N
-			alpha = 300.0 / (300.0 + N[current_action][current_i]) 
+			alpha = 250.0 / (250.0 + N[current_action][current_i]) 
 			N[current_action][current_i] += 1
 
 			# Get successor state
@@ -258,29 +253,3 @@ if(input_filename is None):
 		for n in N[a]:
 			result_file.write(str(n) + '\n')
 
-'''
-for l in range(100):
-	state, reward = update_state(state, 2)
-	print('Ball_x: %.3f Ball_y: %.3f' % (state[0], state[1]))
-
-	disc_state = discretize(state)
-	ball_x = disc_state[0]
-	ball_y = disc_state[1]
-	paddle_y = disc_state[4]
-
-	print('____________')
-	for j in range(12):
-		write('|')
-		for i in range(12):
-			if(i == 11 and (paddle_y == j or paddle_y+1 == j)):
-				write('[')
-			elif(j == ball_y and i == ball_x):
-				write('o')
-			else:
-				write(' ')
-		write('\n')
-	print('____________')
-
-	print('\n')
-	input()
-	print('\n')'''
